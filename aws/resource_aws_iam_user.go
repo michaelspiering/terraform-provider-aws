@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -95,10 +96,17 @@ func resourceAwsIamUserCreate(d *schema.ResourceData, meta interface{}) error {
 		request.Tags = tags.IgnoreAws().IamTags()
 	}
 
-	log.Println("[DEBUG] Create IAM User request:", request)
+	log.Println("[DEBUG] Create IAM User request for Mike:", request)
 	createResp, err := iamconn.CreateUser(request)
 	if err != nil {
-		return fmt.Errorf("Error creating IAM User %s: %s", name, err)
+		if strings.Contains(err.Error(), "EntityAlreadyExists") {
+			username := d.Get("name")
+			usernameString := fmt.Sprintf("%v", username)
+			d.SetId(usernameString)
+			return resourceAwsIamUserRead(d, meta)
+		} else {
+			return fmt.Errorf("Error creating IAM User %s: %s", name, err)
+		}
 	}
 
 	d.SetId(aws.StringValue(createResp.User.UserName))
